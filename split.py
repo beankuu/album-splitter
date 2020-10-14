@@ -9,9 +9,7 @@ from urllib.parse import urlparse, parse_qs
 from uuid import uuid4
 
 from pydub import AudioSegment
-from youtube_dl import YoutubeDL
 
-from split_init import METADATA_PROVIDERS, ydl_opts
 from utils import (split_song, time_to_seconds, track_parser, update_time_change)
 
 
@@ -25,9 +23,8 @@ if __name__ == "__main__":
     # arg parsing
     parser = argparse.ArgumentParser(description='Split a single-file mp3 Album into its tracks.')
     group = parser.add_mutually_exclusive_group(required=True)
-    group.add_argument("-mp3", help="The .mp3 file you want to split.", metavar="mp3_file")
     group.add_argument(
-        "-yt", help="The YouTube video url you want to download and split.", metavar="youtube_url"
+        "-mp3", help="The .mp3 file you want to split.", metavar="mp3_file"
     )
     parser.add_argument(
         "-a", "--artist",
@@ -40,7 +37,9 @@ if __name__ == "__main__":
         default=None
     )
     parser.add_argument(
-        "-t", "--tracks", help="Specify the tracks file. Default: tracks.txt", default="tracks.txt"
+        "-t", "--tracks", 
+        help="Specify the tracks file. Default: tracks.txt", 
+        default="tracks.txt"
     )
     parser.add_argument(
         "-f", "--folder",
@@ -51,8 +50,7 @@ if __name__ == "__main__":
         "-d", "--duration",
         dest='duration',
         action='store_true',
-        help="Specify track time format will use the duration of each individual song. "
-             "Default: False",
+        help="Specify track time format will use the duration of each individual song. ",
         default=False
     )
     parser.add_argument(
@@ -85,13 +83,12 @@ if __name__ == "__main__":
     )
     parser.add_argument(
         "-bitrate",
-        help="Specify the bitrate of the export. Default: '320k'",
-        default="320k"
+        help="Specify the bitrate of the export. Default: '256k'",
+        default="256k"
     )
     args = parser.parse_args()
     TRACKS_FILE_NAME = args.tracks
     FILENAME = args.mp3
-    YT_URL = args.yt
     ALBUM = args.album
     ARTIST = args.artist
     DURATION = args.duration
@@ -108,35 +105,13 @@ if __name__ == "__main__":
         if ALBUM and ARTIST:
             FOLDER = "{} - {}".format(ARTIST, ALBUM)
         else:
-            if YT_URL:
-                url_data = urlparse(YT_URL)
-                query = parse_qs(url_data.query)
-                video_id = query["v"][0]
-                FOLDER = "./splits/{}".format(video_id)
-            else:
-                FOLDER = "./splits/{}".format(str(uuid4())[:16])
+            FOLDER = "./splits/{}".format(str(uuid4())[:16])
     else:
         FOLDER = args.folder
 
     # create destination folder
     if not os.path.exists(FOLDER) and not DRYRUN:
         os.makedirs(FOLDER)
-
-    if METASRC != "file":
-        found_a_source = False
-        for provider in METADATA_PROVIDERS:
-            pattern = re.compile(provider.VALID_URL)
-            if pattern.match(METASRC):
-                print("Matched with a metadata provider...")
-                if not provider.lookup(METASRC, TRACKS_FILE_NAME):
-                    print("Can't find a track list in the provided source. Shutting Down.")
-                    exit()
-                else:
-                    found_a_source = True
-                    break
-        if not found_a_source:
-            print("There was no provider able to get data from your source!")
-            exit()
 
     tracks_start = []
     tracks_titles = []
@@ -166,23 +141,8 @@ if __name__ == "__main__":
     print("Tracks file parsed")
 
     album = None
-    if YT_URL:
-        url_data = urlparse(YT_URL)
-        query = parse_qs(url_data.query)
-        video_id = query["v"][0]
-        FILENAME = video_id + ".wav"
-        if not os.path.isfile(FILENAME):
-                print("Downloading video from YouTube")
-                with YoutubeDL(ydl_opts) as ydl:
-                    ydl.download(['http://www.youtube.com/watch?v=' + video_id])
-                print("\nConversion complete")
-        else:
-                print("Found matching file")
-        print("Loading audio file")
-        album = AudioSegment.from_file(FILENAME, 'wav')
-    else:
-        print("Loading audio file")
-        album = AudioSegment.from_file(FILENAME, 'mp3')
+    print("Loading audio file")
+    album = AudioSegment.from_file(FILENAME, 'mp3')
     print("Audio file loaded")
 
     tracks_start.append(len(album))  # we need this for the last track/split
